@@ -458,11 +458,96 @@ local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
 local VisualsTab = Window:CreateTab("Wallhack", 4483362458)
 local CrosshairTab = Window:CreateTab("Viseur", 4483362458)
 local CleanerTab = Window:CreateTab("Nettoyeur", 4483362458)
-local ConfigTab = Window:CreateTab("Configuration", 4483362458)
+local TeamsTab = Window:CreateTab("Équipes", 4483362458)
 local MiscTab = Window:CreateTab("Divers", 4483362458)
+local ConfigTab = Window:CreateTab("Configuration", 4483362458)
+
+-- // [ TEAMS UI ] // --
+local function CreateTeamButton(team)
+    TeamsTab:CreateButton({
+        Name = team.Name .. " (" .. #team:GetPlayers() .. " Joueurs)",
+        Callback = function()
+            local teamRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Charpente_Partage") and 
+                               game:GetService("ReplicatedStorage").Charpente_Partage:FindFirstChild("RemoteEvent") and 
+                               game:GetService("ReplicatedStorage").Charpente_Partage.RemoteEvent:FindFirstChild("Menu") and 
+                               game:GetService("ReplicatedStorage").Charpente_Partage.RemoteEvent.Menu:FindFirstChild("TeamRequest")
+            
+            if teamRemote then
+                teamRemote:FireServer(team)
+                Rayfield:Notify({
+                    Title = "Changement d'Équipe",
+                    Content = "Tentative de rejoindre : " .. team.Name,
+                    Duration = 3,
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Erreur",
+                    Content = "Remote de changement d'équipe introuvable.",
+                    Duration = 3,
+                })
+            end
+        end
+    })
+end
+
+local allTeams = game:GetService("Teams"):GetTeams()
+local activeTeams = {}
+local emptyTeams = {}
+
+for _, team in pairs(allTeams) do
+    if #team:GetPlayers() > 0 then
+        table.insert(activeTeams, team)
+    else
+        table.insert(emptyTeams, team)
+    end
+end
+
+table.sort(activeTeams, function(a, b)
+    return #a:GetPlayers() > #b:GetPlayers()
+end)
+
+TeamsTab:CreateSection("Équipes Actives")
+for _, team in pairs(activeTeams) do
+    CreateTeamButton(team)
+end
+
+TeamsTab:CreateSection("Équipes Vides")
+for _, team in pairs(emptyTeams) do
+    CreateTeamButton(team)
+end
 
 -- // [ CONFIGURATION UI ] // --
 ConfigTab:CreateSection("Gestion des Paramètres")
+
+ConfigTab:CreateButton({
+    Name = "Sauvegarder les Paramètres",
+    Callback = function()
+        Rayfield:SaveConfiguration()
+        Rayfield:Notify({
+            Title = "Configuration",
+            Content = "Tous les paramètres ont été enregistrés.",
+            Duration = 3,
+        })
+    end,
+})
+
+ConfigTab:CreateToggle({
+    Name = "Sauvegarde Automatique",
+    CurrentValue = true,
+    Flag = "AutoSave",
+    Callback = function(Value)
+        _G.AutoSave = Value
+    end,
+})
+
+task.spawn(function()
+    while true do
+        task.wait(30)
+        if _G.AutoSave then
+            pcall(function() Rayfield:SaveConfiguration() end)
+        end
+    end
+end)
 
 local ConfigName = "Parametres"
 
@@ -1201,3 +1286,6 @@ Rayfield:Notify({
 SendToWebhook()
 
 print("[Main] Initialisation réussie.")
+
+-- // [ FINAL LOAD ] // --
+pcall(function() Rayfield:LoadConfiguration() end)
